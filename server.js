@@ -38,9 +38,7 @@ const topScorers = [
 // ================= LOAD TEAMS =================
 
 async function loadTeams() {
-
   try {
-
     const res = await fetch(API_URL);
 
     if (!res.ok) {
@@ -52,7 +50,6 @@ async function loadTeams() {
     let matches = [];
 
     try {
-
       const matchesRes = await fetch(MATCHES_URL);
 
       if (!matchesRes.ok) {
@@ -64,12 +61,10 @@ async function loadTeams() {
       matches = await matchesRes.json();
 
     } catch (err) {
-
       console.error(
         '⚠️ โหลดข้อมูลนัดแข่งไม่สำเร็จ:',
         err.message
       );
-
     }
 
 
@@ -431,9 +426,6 @@ app.get('/teams', (req, res) => {
   const end =
     performance.now();
 
-
-  // สร้างอันดับใหม่จากผล Sort
-  // เพื่อให้หน้าเว็บได้อันดับ 1 - 20 แน่นอน
 
   const rankedTeams =
     sortedTeams.map((team, index) => ({
@@ -847,4 +839,12 @@ async function startServer() {
 }
 
 
-startServer();
+// ================= VERCEL =================
+
+// เปิด Server แบบปกติเมื่อรันในเครื่อง
+if (require.main === module) {
+  startServer();
+}
+
+// ส่ง Express app ให้ Vercel
+module.exports = app;
