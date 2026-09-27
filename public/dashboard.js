@@ -7,6 +7,9 @@
 async function loadDashboard() {
   const algo = document.getElementById('algo').value;
 
+  showError('');
+  showLoading(true);
+
   try {
     const [tRes, qRes, hRes] = await Promise.all([
       fetch(`/teams?sort=${algo}`),
@@ -14,9 +17,17 @@ async function loadDashboard() {
       fetch('/history'),
     ]);
 
-    if (!tRes.ok) throw new Error('โหลดข้อมูลตารางคะแนนไม่สำเร็จ');
-    if (!qRes.ok) throw new Error('โหลดคิวไม่สำเร็จ');
-    if (!hRes.ok) throw new Error('โหลดประวัติไม่สำเร็จ');
+    if (!tRes.ok) {
+      throw new Error('โหลดข้อมูลตารางคะแนนไม่สำเร็จ');
+    }
+
+    if (!qRes.ok) {
+      throw new Error('โหลดคิวไม่สำเร็จ');
+    }
+
+    if (!hRes.ok) {
+      throw new Error('โหลดประวัติไม่สำเร็จ');
+    }
 
     const teams = await tRes.json();
     const queue = await qRes.json();
@@ -26,12 +37,29 @@ async function loadDashboard() {
     renderTeamQueue(queue);
     renderHistory(history);
 
-    showError('');
   } catch (err) {
+
     showError('โหลดข้อมูลไม่สำเร็จ: ' + err.message);
+
+  } finally {
+
+    showLoading(false);
+
   }
 }
 
+
+// ---------- Loading ----------
+function showLoading(isLoading) {
+  const loading = document.getElementById('loading');
+
+  if (!loading) return;
+
+  loading.style.display = isLoading ? 'block' : 'none';
+}
+
+
+// ---------- Error ----------
 function showError(msg) {
   const box = document.getElementById('error');
 
@@ -44,6 +72,7 @@ function showError(msg) {
 
 // ---------- render ตารางทีม ----------
 function renderTeams(res) {
+
   const sortInfo = document.getElementById('sortInfo');
 
   if (sortInfo) {
@@ -63,7 +92,15 @@ function renderTeams(res) {
          aria-label="ดูรายละเอียด ${team.name}">
 
       <div class="info">
-        <strong><img class="team-logo" src="${team.logo}" alt="">${team.rank ? `${team.rank}. ` : ''}${team.name}</strong>
+
+        <strong>
+          <img
+            class="team-logo"
+            src="${team.logo}"
+            alt=""
+          >
+          ${team.rank ? `${team.rank}. ` : ''}${team.name}
+        </strong>
 
         <span class="meta">
           แข่ง ${team.matches} · ชนะ ${team.won} · เสมอ ${team.draw} · แพ้ ${team.lost}
@@ -72,6 +109,7 @@ function renderTeams(res) {
         <span class="eps">
           ${team.points} คะแนน · ผลต่างประตู ${team.goalDiff}
         </span>
+
       </div>
 
       <button
@@ -98,11 +136,15 @@ function renderTeams(res) {
     card.addEventListener('keydown', event => {
 
       if (event.key === 'Enter' || event.key === ' ') {
+
         event.preventDefault();
+
         openTeamModal(team);
+
       }
 
     });
+
   });
 
 
@@ -120,13 +162,13 @@ function renderTeams(res) {
     });
 
   });
+
 }
 
 
 // ---------- Modal รายละเอียดทีม ----------
 function openTeamModal(team) {
 
-  // ถ้าใน index.html ยังใช้ Modal เดิมจากตัวอย่างอาจารย์
   const modal = document.getElementById('characterModal');
 
   if (!modal) return;
@@ -141,45 +183,86 @@ function openTeamModal(team) {
   const modalEpisodes = document.getElementById('modalEpisodes');
 
 
-  if (modalName)
+  if (modalName) {
     modalName.textContent = team.name;
+  }
 
-  if (modalStatus)
+  if (modalStatus) {
     modalStatus.textContent = `${team.points} คะแนน`;
+  }
 
-  if (modalSpecies)
+  if (modalSpecies) {
     modalSpecies.textContent = `${team.matches} นัด`;
+  }
 
-  if (modalGender)
+  if (modalGender) {
     modalGender.textContent = `ชนะ ${team.won}`;
+  }
 
-  if (modalOrigin)
+  if (modalOrigin) {
     modalOrigin.textContent = `เสมอ ${team.draw}`;
+  }
 
-  if (modalLocation)
+  if (modalLocation) {
     modalLocation.textContent = `แพ้ ${team.lost}`;
+  }
 
-  if (modalEpisodes)
+  if (modalEpisodes) {
     modalEpisodes.textContent =
       `ผลต่างประตู ${team.goalDiff}`;
+  }
 
 
   const matchesList = document.getElementById('modalMatches');
+
   if (matchesList) {
+
     matchesList.innerHTML = team.matchesDetail.length === 0
+
       ? '<p class="empty">ยังไม่มีข้อมูลนัดที่แข่งจบ</p>'
+
       : team.matchesDetail.map(match => `
+
           <div class="match-row ${match.outcome}">
-            <span>${new Date(match.date).toLocaleDateString('th-TH')}</span>
-            <span class="opponent"><img src="${match.opponentLogo}" alt="">${match.opponent}</span>
-            <strong>${match.goals} - ${match.opponentGoals}</strong>
-            <b>${match.outcome === 'win' ? 'ชนะ' : match.outcome === 'loss' ? 'แพ้' : 'เสมอ'}</b>
+
+            <span>
+              ${new Date(match.date).toLocaleDateString('th-TH')}
+            </span>
+
+            <span class="opponent">
+
+              <img
+                src="${match.opponentLogo}"
+                alt=""
+              >
+
+              ${match.opponent}
+
+            </span>
+
+            <strong>
+              ${match.goals} - ${match.opponentGoals}
+            </strong>
+
+            <b>
+              ${
+                match.outcome === 'win'
+                  ? 'ชนะ'
+                  : match.outcome === 'loss'
+                    ? 'แพ้'
+                    : 'เสมอ'
+              }
+            </b>
+
           </div>
+
         `).join('');
+
   }
 
 
   modal.showModal();
+
 }
 
 
@@ -202,6 +285,7 @@ function renderTeamQueue(res) {
   const queueList = document.getElementById('watchlist');
   const processButton = document.getElementById('processQueueButton');
 
+
   if (queueSize) {
     queueSize.textContent = res.size;
   }
@@ -216,48 +300,78 @@ function renderTeamQueue(res) {
 
   if (!queueList) return;
 
+
   queueList.innerHTML =
     res.size === 0
+
       ? '<li class="empty">ยังไม่มีทีมในคิว</li>'
+
       : res.items.map((team, i) => `
+
           <li class="queue-item">
-            <span class="queue-position">${String(i + 1).padStart(2, '0')}</span>
-            <img class="popup-team-logo" src="${team.logo}" alt="">
-            <strong>${team.name}</strong>
+
+            <span class="queue-position">
+              ${String(i + 1).padStart(2, '0')}
+            </span>
+
+            <img
+              class="popup-team-logo"
+              src="${team.logo}"
+              alt=""
+            >
+
+            <strong>
+              ${team.name}
+            </strong>
+
           </li>
+
         `).join('');
+
 }
+
 
 function openQueueModal() {
+
   const modal = document.getElementById('queueModal');
 
   if (modal) {
     modal.showModal();
   }
+
 }
+
 
 function closeQueueModal() {
+
   const modal = document.getElementById('queueModal');
 
   if (modal) {
     modal.close();
   }
+
 }
 
+
 function openHistoryModal() {
+
   const modal = document.getElementById('historyModal');
 
   if (modal) {
     modal.showModal();
   }
+
 }
 
+
 function closeHistoryModal() {
+
   const modal = document.getElementById('historyModal');
 
   if (modal) {
     modal.close();
   }
+
 }
 
 
@@ -267,6 +381,7 @@ function renderHistory(res) {
   const historyList = document.getElementById('history');
   const historySize = document.getElementById('historySize');
   const historySizePopup = document.getElementById('historySizePopup');
+
 
   if (historySize) {
     historySize.textContent = res.size;
@@ -278,17 +393,44 @@ function renderHistory(res) {
 
   if (!historyList) return;
 
+
   historyList.innerHTML =
     res.size === 0
+
       ? '<li class="empty">ยังไม่มีประวัติ</li>'
+
       : res.history.map(h => `
+
           <li class="history-item">
-            <span class="history-action ${h.action.toLowerCase()}">${h.action === 'ADD' ? 'เพิ่มเข้าคิว' : 'ดูทีม'}</span>
-            <img class="popup-team-logo" src="${h.team.logo}" alt="">
-            <strong>${h.team.name}</strong>
-            <time>${h.time}</time>
+
+            <span class="history-action ${h.action.toLowerCase()}">
+
+              ${
+                h.action === 'ADD'
+                  ? 'เพิ่มเข้าคิว'
+                  : 'ดูทีม'
+              }
+
+            </span>
+
+            <img
+              class="popup-team-logo"
+              src="${h.team.logo}"
+              alt=""
+            >
+
+            <strong>
+              ${h.team.name}
+            </strong>
+
+            <time>
+              ${h.time}
+            </time>
+
           </li>
+
         `).join('');
+
 }
 
 
@@ -298,6 +440,7 @@ async function addToTeamQueue(id) {
   try {
 
     const res = await fetch('/teamqueue', {
+
       method: 'POST',
 
       headers: {
@@ -305,6 +448,7 @@ async function addToTeamQueue(id) {
       },
 
       body: JSON.stringify({ id })
+
     });
 
 
@@ -326,6 +470,7 @@ async function addToTeamQueue(id) {
     showError(err.message);
 
   }
+
 }
 
 
@@ -354,8 +499,11 @@ async function processQueue() {
 
 
     const data = await res.json();
+
     await loadDashboard();
+
     closeQueueModal();
+
     openTeamModal(data.team);
 
   } catch (err) {
@@ -363,6 +511,7 @@ async function processQueue() {
     showError(err.message);
 
   }
+
 }
 
 
@@ -397,6 +546,7 @@ async function undo() {
     showError(err.message);
 
   }
+
 }
 
 
@@ -404,4 +554,4 @@ async function undo() {
 window.addEventListener(
   'load',
   loadDashboard
-)
+);

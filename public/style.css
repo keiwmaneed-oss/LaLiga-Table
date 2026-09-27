@@ -553,3 +553,9 @@ dialog::backdrop {
     width: 64px;
   }
 }
+
+#loading {
+  display: none;
+  padding: 12px;
+  text-align: center;
+}
