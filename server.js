@@ -1,9 +1,3 @@
-// =====================================================================
-// 801201 — LaLiga Table & Match Results
-// Express เป็นตัวกลางระหว่าง browser กับ OpenLigaDB API
-// DSA: Sort + Queue + Stack
-// =====================================================================
-
 const express = require('express');
 const app = express();
 const PORT = 3000;
@@ -11,18 +5,42 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static('public'));
 
-// ---------------------------------------------------------------------
-// TODO 1 — ดึงตารางคะแนน LaLiga จาก API
-// LaLiga EA Sports ฤดูกาล 2026/2027
-// ---------------------------------------------------------------------
-
 const API_URL = 'https://api.openligadb.de/getbltable/la1/2026';
 const MATCHES_URL = 'https://api.openligadb.de/getmatchdata/la1/2026';
 
 let teams = [];
 
+
+// ================= TOP SCORERS =================
+
+const topScorers = [
+  {
+    rank: 1,
+    name: 'Raphinha',
+    team: 'Barcelona',
+    goals: 12
+  },
+  {
+    rank: 2,
+    name: 'Sergio Camello',
+    team: 'Rayo Vallecano',
+    goals: 7
+  },
+  {
+    rank: 2,
+    name: 'Kylian Mbappe',
+    team: 'Real Madrid',
+    goals: 7
+  }
+];
+
+
+// ================= LOAD TEAMS =================
+
 async function loadTeams() {
+
   try {
+
     const res = await fetch(API_URL);
 
     if (!res.ok) {
@@ -34,6 +52,7 @@ async function loadTeams() {
     let matches = [];
 
     try {
+
       const matchesRes = await fetch(MATCHES_URL);
 
       if (!matchesRes.ok) {
@@ -45,23 +64,59 @@ async function loadTeams() {
       matches = await matchesRes.json();
 
     } catch (err) {
+
       console.error(
         '⚠️ โหลดข้อมูลนัดแข่งไม่สำเร็จ:',
         err.message
       );
+
     }
 
-    // ---------------------------------------------------------------
-    // จัดกลุ่มผลการแข่งขันตามทีม
-    // ---------------------------------------------------------------
 
     const matchesByTeam = new Map();
+    const upcomingMatchesByTeam = new Map();
+
 
     for (const match of matches) {
 
+      // ================= UPCOMING =================
+
       if (!match.matchIsFinished) {
+
+        const upcoming = {
+          date: match.matchDateTime,
+          homeTeam: match.team1.teamName,
+          awayTeam: match.team2.teamName
+        };
+
+        [
+          match.team1.teamId,
+          match.team2.teamId
+        ].forEach(teamId => {
+
+          const current =
+            upcomingMatchesByTeam.get(teamId);
+
+          if (
+            !current ||
+            new Date(upcoming.date) <
+            new Date(current.date)
+          ) {
+
+            upcomingMatchesByTeam.set(
+              teamId,
+              upcoming
+            );
+
+          }
+
+        });
+
         continue;
       }
+
+
+      // ================= FINISHED MATCH =================
 
       const result =
         match.matchResults.find(
@@ -71,15 +126,15 @@ async function loadTeams() {
           match.matchResults.length - 1
         ];
 
-      if (!result) {
-        continue;
-      }
+      if (!result) continue;
+
 
       const team1Won =
         result.pointsTeam1 > result.pointsTeam2;
 
       const team2Won =
         result.pointsTeam2 > result.pointsTeam1;
+
 
       const matchInfo = [
 
@@ -98,6 +153,7 @@ async function loadTeams() {
         }
 
       ];
+
 
       matchInfo.forEach(
         (
@@ -121,16 +177,20 @@ async function loadTeams() {
                 ? 'win'
                 : 'loss';
 
+
           const teamMatches =
             matchesByTeam.get(team.teamId) || [];
+
 
           teamMatches.push({
 
             date: match.matchDateTime,
 
-            opponent: opponent.teamName,
+            opponent:
+              opponent.teamName,
 
-            opponentLogo: opponent.teamIconUrl,
+            opponentLogo:
+              opponent.teamIconUrl,
 
             goals,
 
@@ -140,6 +200,7 @@ async function loadTeams() {
 
           });
 
+
           matchesByTeam.set(
             team.teamId,
             teamMatches
@@ -147,42 +208,52 @@ async function loadTeams() {
 
         }
       );
+
     }
 
-    // ---------------------------------------------------------------
-    // สร้างข้อมูลทีมสำหรับหน้าเว็บ
-    // ---------------------------------------------------------------
+
+    // ================= TEAM DATA =================
 
     teams = data.map(team => ({
 
-      id: team.teamInfoId,
+      id: Number(team.teamInfoId),
 
       name: team.teamName,
 
       logo: team.teamIconUrl,
 
-      rank: team.rank,
+      rank: Number(team.rank),
 
-      points: team.points,
+      points: Number(team.points),
 
-      matches: team.matches,
+      matches: Number(team.matches),
 
-      won: team.won,
+      won: Number(team.won),
 
-      draw: team.draw,
+      draw: Number(team.draw),
 
-      lost: team.lost,
+      lost: Number(team.lost),
 
-      goals: team.goals,
+      goals: Number(team.goals),
 
-      opponentGoals: team.opponentGoals,
+      opponentGoals:
+        Number(team.opponentGoals),
 
-      goalDiff: team.goalDiff,
+      goalDiff:
+        Number(team.goalDiff),
 
       matchesDetail:
-        matchesByTeam.get(team.teamInfoId) || []
+        matchesByTeam.get(
+          team.teamInfoId
+        ) || [],
+
+      nextMatch:
+        upcomingMatchesByTeam.get(
+          team.teamInfoId
+        ) || null
 
     }));
+
 
     console.log(
       `✅ โหลดตาราง LaLiga สำเร็จ: ${teams.length} ทีม`
@@ -196,129 +267,123 @@ async function loadTeams() {
     );
 
   }
+
 }
 
 
-// =====================================================================
-// TODO 2 — SORT
-// เรียงคะแนนจากมาก → น้อย
-// =====================================================================
-
-// ---------------------------------------------------------------------
-// Selection Sort
-// ---------------------------------------------------------------------
+// ================= SORT =================
 
 function selectionSort(arr) {
 
-  const a = [...arr];
+  const result = [...arr];
 
   for (
     let i = 0;
-    i < a.length - 1;
+    i < result.length - 1;
     i++
   ) {
 
-    let maxIdx = i;
+    let maxIndex = i;
 
     for (
       let j = i + 1;
-      j < a.length;
+      j < result.length;
       j++
     ) {
 
       if (
-        a[j].points >
-        a[maxIdx].points
+        result[j].points >
+        result[maxIndex].points
       ) {
 
-        maxIdx = j;
+        maxIndex = j;
 
       }
 
     }
 
-    [
-      a[i],
-      a[maxIdx]
-    ] = [
-      a[maxIdx],
-      a[i]
-    ];
+
+    if (maxIndex !== i) {
+
+      [
+        result[i],
+        result[maxIndex]
+      ] = [
+        result[maxIndex],
+        result[i]
+      ];
+
+    }
 
   }
 
-  return a;
+  return result;
+
 }
 
 
-// ---------------------------------------------------------------------
-// Insertion Sort
-// ---------------------------------------------------------------------
-
 function insertionSort(arr) {
 
-  const a = [...arr];
+  const result = [...arr];
 
   for (
     let i = 1;
-    i < a.length;
+    i < result.length;
     i++
   ) {
 
-    const key = a[i];
+    const current = result[i];
 
     let j = i - 1;
 
     while (
       j >= 0 &&
-      a[j].points < key.points
+      result[j].points < current.points
     ) {
 
-      a[j + 1] = a[j];
+      result[j + 1] =
+        result[j];
 
       j--;
 
     }
 
-    a[j + 1] = key;
+    result[j + 1] = current;
 
   }
 
-  return a;
+  return result;
+
 }
 
 
-// ---------------------------------------------------------------------
-// Bubble Sort
-// ---------------------------------------------------------------------
-
 function bubbleSort(arr) {
 
-  const a = [...arr];
+  const result = [...arr];
 
   for (
     let i = 0;
-    i < a.length - 1;
+    i < result.length;
     i++
   ) {
 
     for (
       let j = 0;
-      j < a.length - 1 - i;
+      j < result.length - i - 1;
       j++
     ) {
 
       if (
-        a[j].points <
-        a[j + 1].points
+        result[j].points <
+        result[j + 1].points
       ) {
 
         [
-          a[j],
-          a[j + 1]
+          result[j],
+          result[j + 1]
         ] = [
-          a[j + 1],
-          a[j]
+          result[j + 1],
+          result[j]
         ];
 
       }
@@ -327,62 +392,92 @@ function bubbleSort(arr) {
 
   }
 
-  return a;
+  return result;
+
 }
 
 
-// =====================================================================
-// API สำหรับหน้าเว็บ
-// =====================================================================
+// ================= TEAMS API =================
 
 app.get('/teams', (req, res) => {
 
   const algo =
-    req.query.sort || 'selection';
+    req.query.algo || 'selection';
 
-  const t0 = performance.now();
+  const start =
+    performance.now();
 
-  let sorted;
+  let sortedTeams;
+
 
   if (algo === 'insertion') {
 
-    sorted = insertionSort(teams);
+    sortedTeams =
+      insertionSort(teams);
+
+  } else if (algo === 'bubble') {
+
+    sortedTeams =
+      bubbleSort(teams);
+
+  } else {
+
+    sortedTeams =
+      selectionSort(teams);
 
   }
-  else if (algo === 'bubble') {
 
-    sorted = bubbleSort(teams);
 
-  }
-  else {
+  const end =
+    performance.now();
 
-    sorted = selectionSort(teams);
 
-  }
+  // สร้างอันดับใหม่จากผล Sort
+  // เพื่อให้หน้าเว็บได้อันดับ 1 - 20 แน่นอน
 
-  const ms =
-    (performance.now() - t0)
-      .toFixed(3);
+  const rankedTeams =
+    sortedTeams.map((team, index) => ({
+
+      ...team,
+
+      rank: index + 1
+
+    }));
+
 
   res.json({
 
-    algorithm: algo,
+    algorithm:
+      algo === 'insertion'
+        ? 'Insertion Sort'
+        : algo === 'bubble'
+          ? 'Bubble Sort'
+          : 'Selection Sort',
 
-    count: sorted.length,
+    count:
+      rankedTeams.length,
 
-    ms: ms,
+    ms:
+      Number((end - start).toFixed(3)),
 
-    data: sorted
+    data:
+      rankedTeams
 
   });
 
 });
 
 
-// =====================================================================
-// TODO 3 — QUEUE
-// คิวทีมที่ผู้ใช้เลือก
-// =====================================================================
+// ================= SCORERS API =================
+
+app.get('/scorers', (req, res) => {
+
+  res.json(topScorers);
+
+});
+
+
+// ================= QUEUE =================
 
 class Queue {
 
@@ -392,28 +487,28 @@ class Queue {
 
   }
 
-  // เพิ่มข้อมูลเข้าท้าย Queue
+
   enqueue(item) {
 
     this.items.push(item);
 
   }
 
-  // นำข้อมูลตัวแรกออกจาก Queue
+
   dequeue() {
 
     return this.items.shift();
 
   }
 
-  // ดูข้อมูลตัวแรกโดยไม่เอาออก
+
   peek() {
 
     return this.items[0];
 
   }
 
-  // ดูจำนวนข้อมูลใน Queue
+
   size() {
 
     return this.items.length;
@@ -423,136 +518,10 @@ class Queue {
 }
 
 
-// สร้าง Queue สำหรับทีม
-const teamQueue = new Queue();
+const queue = new Queue();
 
 
-// ---------------------------------------------------------------------
-// ดู Queue
-// ---------------------------------------------------------------------
-
-app.get('/teamqueue', (req, res) => {
-
-  res.json({
-
-    items: teamQueue.items,
-
-    size: teamQueue.size(),
-
-    next:
-      teamQueue.peek() || null
-
-  });
-
-});
-
-
-// ---------------------------------------------------------------------
-// เพิ่มทีมเข้าคิว
-// ---------------------------------------------------------------------
-
-app.post('/teamqueue', (req, res) => {
-
-  const team =
-    teams.find(
-      t =>
-        t.id === Number(req.body.id)
-    );
-
-  if (!team) {
-
-    return res.status(404).json({
-
-      error: 'ไม่พบทีมนี้'
-
-    });
-
-  }
-
-  // เพิ่มทีมเข้าท้าย Queue
-  teamQueue.enqueue(team);
-
-  // บันทึกการทำงานลง Stack
-  history.push({
-
-    action: 'ADD',
-
-    team: team,
-
-    time:
-      new Date()
-        .toLocaleTimeString('th-TH')
-
-  });
-
-  res.status(201).json({
-
-    message:
-      `เพิ่ม ${team.name} เข้าคิวแล้ว`,
-
-    size:
-      teamQueue.size()
-
-  });
-
-});
-
-
-// ---------------------------------------------------------------------
-// ดูทีมถัดไป / Dequeue
-// ---------------------------------------------------------------------
-
-app.delete(
-  '/teamqueue/process',
-  (req, res) => {
-
-    if (teamQueue.size() === 0) {
-
-      return res.status(400).json({
-
-        error: 'คิวว่าง'
-
-      });
-
-    }
-
-    // เอาทีมตัวแรกออกจาก Queue
-    const team =
-      teamQueue.dequeue();
-
-    // บันทึกการทำงานลง Stack
-    history.push({
-
-      action: 'VIEW',
-
-      team: team,
-
-      time:
-        new Date()
-          .toLocaleTimeString('th-TH')
-
-    });
-
-    res.json({
-
-      message:
-        `ดูข้อมูล ${team.name} เรียบร้อย`,
-
-      team: team,
-
-      size:
-        teamQueue.size()
-
-    });
-
-  }
-);
-
-
-// =====================================================================
-// TODO 4 — STACK
-// เก็บประวัติการทำงาน เพื่อทำ Undo
-// =====================================================================
+// ================= STACK =================
 
 class Stack {
 
@@ -562,21 +531,21 @@ class Stack {
 
   }
 
-  // เพิ่มข้อมูลบน Stack
+
   push(item) {
 
     this.items.push(item);
 
   }
 
-  // นำข้อมูลล่าสุดออกจาก Stack
+
   pop() {
 
     return this.items.pop();
 
   }
 
-  // ดูข้อมูลล่าสุด
+
   peek() {
 
     return this.items[
@@ -585,14 +554,14 @@ class Stack {
 
   }
 
-  // ตรวจสอบว่า Stack ว่างหรือไม่
+
   isEmpty() {
 
     return this.items.length === 0;
 
   }
 
-  // แสดงประวัติจากล่าสุด → เก่าสุด
+
   display() {
 
     return [
@@ -604,19 +573,167 @@ class Stack {
 }
 
 
-// สร้าง Stack สำหรับประวัติ
 const history = new Stack();
 
 
-// ---------------------------------------------------------------------
-// ดูประวัติ
-// ---------------------------------------------------------------------
+// ================= QUEUE GET =================
+
+app.get('/teamqueue', (req, res) => {
+
+  res.json({
+
+    items:
+      queue.items,
+
+    size:
+      queue.size(),
+
+    next:
+      queue.peek() || null
+
+  });
+
+});
+
+
+// ================= QUEUE ADD =================
+
+app.post('/teamqueue', (req, res) => {
+
+  const teamId =
+    Number(req.body.teamId);
+
+
+  const team =
+    teams.find(
+      item =>
+        Number(item.id) === teamId
+    );
+
+
+  if (!team) {
+
+    return res.status(404).json({
+
+      error: 'ไม่พบทีมนี้',
+
+      receivedTeamId:
+        req.body.teamId
+
+    });
+
+  }
+
+
+  const alreadyInQueue =
+    queue.items.some(
+      item =>
+        Number(item.id) === teamId
+    );
+
+
+  if (alreadyInQueue) {
+
+    return res.status(400).json({
+
+      error: 'ทีมนี้อยู่ในคิวแล้ว'
+
+    });
+
+  }
+
+
+  queue.enqueue(team);
+
+
+  history.push({
+
+    action: 'ADD',
+
+    team: team,
+
+    time:
+      new Date().toISOString()
+
+  });
+
+
+  res.json({
+
+    message:
+      'เพิ่มทีมเข้าคิวสำเร็จ',
+
+    items:
+      queue.items,
+
+    size:
+      queue.size()
+
+  });
+
+});
+
+
+// ================= QUEUE PROCESS =================
+
+app.delete(
+  '/teamqueue/process',
+  (req, res) => {
+
+    if (queue.size() === 0) {
+
+      return res.status(400).json({
+
+        error: 'ไม่มีทีมในคิว'
+
+      });
+
+    }
+
+
+    const team =
+      queue.dequeue();
+
+
+    history.push({
+
+      action: 'VIEW',
+
+      team: team,
+
+      time:
+        new Date().toISOString()
+
+    });
+
+
+    res.json({
+
+      message:
+        'ดูทีมถัดไปสำเร็จ',
+
+      team:
+        team,
+
+      size:
+        queue.size(),
+
+      items:
+        queue.items
+
+    });
+
+  }
+);
+
+
+// ================= HISTORY =================
 
 app.get('/history', (req, res) => {
 
   res.json({
 
-    history:
+    display:
       history.display(),
 
     size:
@@ -627,9 +744,7 @@ app.get('/history', (req, res) => {
 });
 
 
-// ---------------------------------------------------------------------
-// Undo
-// ---------------------------------------------------------------------
+// ================= UNDO =================
 
 app.post('/undo', (req, res) => {
 
@@ -637,43 +752,37 @@ app.post('/undo', (req, res) => {
 
     return res.status(400).json({
 
-      error:
-        'ไม่มีอะไรให้ย้อนกลับ'
+      error: 'ไม่มีอะไรให้ Undo'
 
     });
 
   }
 
-  // เอาการทำงานล่าสุดออกจาก Stack
+
   const last =
     history.pop();
 
 
-  // ---------------------------------------------------------------
-  // ถ้าเป็น ADD
-  // ให้เอาทีมที่ถูกเพิ่มออกจาก Queue
-  // ---------------------------------------------------------------
+  // Undo การเพิ่มทีมเข้าคิว
 
   if (last.action === 'ADD') {
 
-    // หา "ทีมล่าสุดที่มี id ตรงกัน"
-    // แล้วลบออกเพียง 1 ตัว
-    // ไม่ใช้ pop() เพราะทีมที่เพิ่มล่าสุด
-    // อาจไม่ได้อยู่ท้าย Queue แล้ว
+    const teamId =
+      Number(last.team.id);
+
 
     for (
-      let i =
-        teamQueue.items.length - 1;
+      let i = queue.items.length - 1;
       i >= 0;
       i--
     ) {
 
       if (
-        teamQueue.items[i].id ===
-        last.team.id
+        Number(queue.items[i].id) ===
+        teamId
       ) {
 
-        teamQueue.items.splice(i, 1);
+        queue.items.splice(i, 1);
 
         break;
 
@@ -684,18 +793,17 @@ app.post('/undo', (req, res) => {
   }
 
 
-  // ---------------------------------------------------------------
-  // ถ้าเป็น VIEW
-  // ให้เอาทีมกลับไปไว้หน้าสุดของ Queue
-  // ---------------------------------------------------------------
+  // Undo การดูทีม
 
-  else if (
-    last.action === 'VIEW'
-  ) {
+  else if (last.action === 'VIEW') {
 
-    teamQueue.items.unshift(
-      last.team
-    );
+    if (last.team) {
+
+      queue.items.unshift(
+        last.team
+      );
+
+    }
 
   }
 
@@ -703,31 +811,40 @@ app.post('/undo', (req, res) => {
   res.json({
 
     message:
-      `ย้อน ${last.action} ของ ${last.team.name} แล้ว`,
+      'Undo สำเร็จ',
 
-    size:
-      teamQueue.size()
+    action:
+      last.action,
+
+    team:
+      last.team,
+
+    queue:
+      queue.items,
+
+    history:
+      history.display()
 
   });
 
 });
 
 
-// =====================================================================
-// START SERVER
-// =====================================================================
+// ================= START SERVER =================
 
-loadTeams().then(() => {
+async function startServer() {
 
-  app.listen(
-    PORT,
-    () => {
+  await loadTeams();
 
-      console.log(
-        `🚀 LaLiga Dashboard: http://localhost:${PORT}`
-      );
+  app.listen(PORT, () => {
 
-    }
-  );
+    console.log(
+      `🚀 Server running at http://localhost:${PORT}`
+    );
 
-});
+  });
+
+}
+
+
+startServer();

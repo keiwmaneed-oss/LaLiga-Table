@@ -3,217 +3,345 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>LaLiga Dashboard</title>
-
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <!-- Header -->
-  <header>
-    <h1>LaLiga EA Sports Dashboard</h1>
+<header class="top-header">
+  <div>
+    <h1>LaLiga EA Sports</h1>
+    <p>801201 Week 8 · Sort + Queue + Stack</p>
+  </div>
+  <div class="api-status">
+    <span class="status-dot"></span>
+    OpenLigaDB API
+  </div>
+</header>
 
-    <p>
-      801201 Week 8 · Sort + Queue + Stack ·
-      ข้อมูลตารางคะแนนจาก OpenLigaDB API
-    </p>
-  </header>
+<div id="error"></div>
 
+<div id="loading">
+  <div class="spinner"></div>
+  <span>กำลังโหลดข้อมูล LaLiga...</span>
+</div>
 
-  <!-- Error -->
-  <div id="error"></div>
+<main class="layout">
 
-  <div id="loading">กำลังโหลดข้อมูล...</div>
+  <!-- ================= LEFT ================= -->
+  <section class="main-column">
 
-  <!-- Main -->
-  <div class="layout">
+    <div class="panel standings-panel">
 
-    <!-- ตารางคะแนน -->
-    <div class="panel">
+      <div class="panel-title">
+        <div>
+          <span class="eyebrow">LA LIGA</span>
+          <h2>ตารางคะแนน</h2>
+        </div>
 
-      <h2>ตารางคะแนน LaLiga</h2>
+        <div class="sort-box">
+          <label for="algo">Sort</label>
+          <select id="algo" onchange="loadDashboard()">
+            <option value="selection">Selection Sort</option>
+            <option value="insertion">Insertion Sort</option>
+            <option value="bubble">Bubble Sort</option>
+          </select>
+        </div>
+      </div>
 
-      <div class="toolbar">
+      <div class="zone-legend">
+        <span><i class="zone cl"></i> Champions League</span>
+        <span><i class="zone europa"></i> Europa League</span>
+        <span><i class="zone conference"></i> Conference League</span>
+        <span><i class="zone relegation"></i> Relegation</span>
+      </div>
 
-        <select id="algo" onchange="loadDashboard()">
+      <div class="sort-info" id="sortInfo"></div>
 
-          <option value="selection">
-            Selection Sort
-          </option>
-
-          <option value="insertion">
-            Insertion Sort
-          </option>
-
-          <option value="bubble">
-            Bubble Sort
-          </option>
-
-        </select>
-
-        <span id="sortInfo"></span>
-
+      <div class="table-head">
+        <span>#</span>
+        <span>ทีม</span>
+        <span>แข่ง</span>
+        <span>ชนะ</span>
+        <span>เสมอ</span>
+        <span>แพ้</span>
+        <span>GD</span>
+        <span>PTS</span>
+        <span>คิว</span>
       </div>
 
       <div id="characters"></div>
 
     </div>
 
+  </section>
 
-    <!-- ด้านขวา -->
-    <div>
 
-      <div class="panel queue-panel summary-panel">
-        <button
-          class="summary-button queue-open-button"
-          type="button"
-          aria-haspopup="dialog"
-          aria-controls="queueModal"
-          onclick="openQueueModal()"
-        >
-          <span class="summary-icon queue-icon" aria-hidden="true">★</span>
-          <span class="summary-copy">
-            <strong>ทีมที่เลือก</strong>
-            <small>รายการในคิว</small>
-          </span>
-          <span class="badge" id="queueSize">0</span>
-        </button>
+  <!-- ================= RIGHT ================= -->
+  <aside class="side-column">
+
+    <!-- TOP SCORERS -->
+    <div class="panel scorer-panel">
+
+      <div class="side-title">
+        <div>
+          <span class="eyebrow">TOP PLAYERS</span>
+          <h2>ดาวซัลโว</h2>
+        </div>
+        <span class="title-icon">⚽</span>
       </div>
 
-      <div class="panel summary-panel history-panel">
-        <button
-          class="summary-button history-open-button"
-          type="button"
-          aria-haspopup="dialog"
-          aria-controls="historyModal"
-          onclick="openHistoryModal()"
-        >
-          <span class="summary-icon history-icon" aria-hidden="true">↶</span>
-          <span class="summary-copy">
-            <strong>ประวัติการทำงาน</strong>
-            <small>Stack</small>
-          </span>
-          <span class="badge history-badge" id="historySize">0</span>
-        </button>
+      <div id="scorers"></div>
+
+    </div>
+
+
+    <!-- QUEUE -->
+    <div class="panel summary-panel">
+
+      <button
+        class="summary-button"
+        type="button"
+        onclick="openQueueModal()"
+      >
+        <span class="summary-icon queue-icon">★</span>
+
+        <span class="summary-copy">
+          <strong>ทีมที่เลือก</strong>
+          <small>Queue · ดูทีมถัดไป</small>
+        </span>
+
+        <span class="badge" id="queueSize">0</span>
+      </button>
+
+    </div>
+
+
+    <!-- STACK -->
+    <div class="panel summary-panel">
+
+      <button
+        class="summary-button"
+        type="button"
+        onclick="openHistoryModal()"
+      >
+        <span class="summary-icon history-icon">↶</span>
+
+        <span class="summary-copy">
+          <strong>ประวัติการทำงาน</strong>
+          <small>Stack · Undo</small>
+        </span>
+
+        <span class="badge history-badge" id="historySize">0</span>
+      </button>
+
+    </div>
+
+  </aside>
+
+</main>
+
+
+<!-- ================= TEAM MODAL ================= -->
+
+<dialog id="characterModal">
+
+  <div class="team-modal">
+
+    <div class="team-modal-header">
+
+      <div class="team-modal-name">
+        <img id="modalLogo" src="" alt="">
+        <div>
+          <span class="eyebrow">TEAM PROFILE</span>
+          <h2 id="modalName"></h2>
+        </div>
       </div>
+
+      <button
+        class="icon-close"
+        type="button"
+        onclick="closeCharacterModal()"
+      >×</button>
+
+    </div>
+
+
+    <!-- TEAM STATS -->
+
+    <div class="team-stats">
+
+      <div>
+        <span>คะแนน</span>
+        <strong id="modalStatus">-</strong>
+      </div>
+
+      <div>
+        <span>แข่ง</span>
+        <strong id="modalSpecies">-</strong>
+      </div>
+
+      <div>
+        <span>ชนะ</span>
+        <strong id="modalGender">-</strong>
+      </div>
+
+      <div>
+        <span>เสมอ</span>
+        <strong id="modalOrigin">-</strong>
+      </div>
+
+      <div>
+        <span>แพ้</span>
+        <strong id="modalLocation">-</strong>
+      </div>
+
+      <div>
+        <span>ผลต่างประตู</span>
+        <strong id="modalEpisodes">-</strong>
+      </div>
+
+    </div>
+
+
+    <!-- NEXT MATCH -->
+
+    <div id="nextMatch" class="next-match"></div>
+
+
+    <!-- MATCH HISTORY -->
+
+    <div class="section-title">
+      <h3>ผลการแข่งขันล่าสุด</h3>
+    </div>
+
+    <div id="modalMatches"></div>
+
+
+    <div class="modal-actions">
+
+      <button
+        class="secondary-button"
+        type="button"
+        onclick="showPreviousTeam()"
+      >
+        ← ทีมก่อนหน้า
+      </button>
+
+      <button
+        class="primary-button"
+        type="button"
+        onclick="showNextTeam()"
+      >
+        ทีมถัดไป →
+      </button>
+
+      <button
+        class="close-button"
+        type="button"
+        onclick="closeCharacterModal()"
+      >
+        ปิด
+      </button>
 
     </div>
 
   </div>
 
+</dialog>
 
-  <!-- Modal -->
-  <dialog
-    id="characterModal"
-    aria-labelledby="modalName"
-  >
 
-    <div class="modal-content">
+<!-- ================= QUEUE MODAL ================= -->
 
-      <div class="modal-header">
-        <h2 id="modalName"></h2>
+<dialog id="queueModal">
+
+  <div class="popup-content">
+
+    <div class="popup-header">
+
+      <div>
+        <span class="popup-eyebrow">QUEUE · FIFO</span>
+        <h2>ทีมที่เลือก</h2>
       </div>
 
+      <span class="badge" id="queueSizePopup">0</span>
 
-      <dl class="details">
-
-        <div>
-          <dt>คะแนน</dt>
-          <dd id="modalStatus"></dd>
-        </div>
-
-        <div>
-          <dt>แข่ง</dt>
-          <dd id="modalSpecies"></dd>
-        </div>
-
-        <div>
-          <dt>ชนะ</dt>
-          <dd id="modalGender"></dd>
-        </div>
-
-        <div>
-          <dt>เสมอ</dt>
-          <dd id="modalOrigin"></dd>
-        </div>
-
-        <div>
-          <dt>แพ้</dt>
-          <dd id="modalLocation"></dd>
-        </div>
-
-        <div>
-          <dt>ผลต่างประตู</dt>
-          <dd id="modalEpisodes"></dd>
-        </div>
-
-      </dl>
-
-
-      <!-- ผลการแข่งขัน -->
-      <h3 class="modal-matches-title">
-        ผลการแข่งขันรายนัด
-      </h3>
-
-      <div id="modalMatches"></div>
-
-      <div class="modal-actions">
-        <button
-          type="button"
-          onclick="closeCharacterModal()"
-        >
-          ปิด
-        </button>
-      </div>
     </div>
-  </dialog>
 
-  <dialog id="queueModal" aria-labelledby="queueModalTitle">
-    <div class="popup-content">
-      <div class="popup-header">
-        <div>
-          <span class="popup-eyebrow">QUEUE</span>
-          <h2 id="queueModalTitle">ทีมที่เลือก</h2>
-        </div>
-        <span class="badge" id="queueSizePopup">0</span>
-      </div>
+    <ul id="watchlist" class="popup-list"></ul>
 
-      <ul id="watchlist" class="popup-list"></ul>
+    <div class="queue-modal-actions">
 
-      <div class="queue-modal-actions">
-        <button class="primary" id="processQueueButton" type="button" onclick="processQueue()">
-          ดูทีมถัดไป <span aria-hidden="true">→</span>
-        </button>
-        <button type="button" onclick="closeQueueModal()">ปิด</button>
-      </div>
+      <button
+        class="primary-button"
+        id="processQueueButton"
+        type="button"
+        onclick="processQueue()"
+      >
+        ดูทีมถัดไป →
+      </button>
+
+      <button
+        class="close-button"
+        type="button"
+        onclick="closeQueueModal()"
+      >
+        ปิด
+      </button>
+
     </div>
-  </dialog>
 
-  <dialog id="historyModal" aria-labelledby="historyModalTitle">
-    <div class="popup-content">
-      <div class="popup-header">
-        <div>
-          <span class="popup-eyebrow history-eyebrow">STACK</span>
-          <h2 id="historyModalTitle">ประวัติการทำงาน</h2>
-        </div>
-        <span class="badge history-badge" id="historySizePopup">0</span>
+  </div>
+
+</dialog>
+
+
+<!-- ================= HISTORY MODAL ================= -->
+
+<dialog id="historyModal">
+
+  <div class="popup-content">
+
+    <div class="popup-header">
+
+      <div>
+        <span class="popup-eyebrow history-eyebrow">STACK · LIFO</span>
+        <h2>ประวัติการทำงาน</h2>
       </div>
 
-      <ul id="history" class="popup-list history-list"></ul>
+      <span class="badge history-badge" id="historySizePopup">0</span>
 
-      <div class="queue-modal-actions">
-        <button class="warn" type="button" onclick="undo()">
-          <span aria-hidden="true">↶</span> Undo ล่าสุด
-        </button>
-        <button type="button" onclick="closeHistoryModal()">ปิด</button>
-      </div>
     </div>
-  </dialog>
+
+    <ul id="history" class="popup-list history-list"></ul>
+
+    <div class="queue-modal-actions">
+
+      <button
+        class="warn-button"
+        type="button"
+        onclick="undo()"
+      >
+        ↶ Undo ล่าสุด
+      </button>
+
+      <button
+        class="close-button"
+        type="button"
+        onclick="closeHistoryModal()"
+      >
+        ปิด
+      </button>
+
+    </div>
+
+  </div>
+
+</dialog>
 
 
-  <script src="dashboard.js"></script>
+<script src="dashboard.js"></script>
 
 </body>
 </html>

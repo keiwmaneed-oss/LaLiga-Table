@@ -1,557 +1,926 @@
-// =====================================================================
-// dashboard.js — frontend
-// LaLiga Table & Match Results Tracker
-// =====================================================================
+let selectedTeams = [];
+let modalTeamSequence = [];
+let modalTeamIndex = -1;
+let availableTeams = [];
 
-// ---------- โหลด 3 endpoint พร้อมกันด้วย Promise.all() ----------
+
+// ================= LOAD DASHBOARD =================
+
 async function loadDashboard() {
-  const algo = document.getElementById('algo').value;
 
-  showError('');
-  showLoading(true);
+  const loading = document.getElementById("loading");
+  const error = document.getElementById("error");
+
+  loading.style.display = "flex";
+  error.textContent = "";
 
   try {
-    const [tRes, qRes, hRes] = await Promise.all([
-      fetch(`/teams?sort=${algo}`),
-      fetch('/teamqueue'),
-      fetch('/history'),
-    ]);
 
-    if (!tRes.ok) {
-      throw new Error('โหลดข้อมูลตารางคะแนนไม่สำเร็จ');
+    const algo = document.getElementById("algo").value;
+
+    const response = await fetch(`/teams?algo=${algo}`);
+
+    if (!response.ok) {
+      throw new Error("โหลดข้อมูลทีมไม่สำเร็จ");
     }
 
-    if (!qRes.ok) {
-      throw new Error('โหลดคิวไม่สำเร็จ');
-    }
+    const result = await response.json();
 
-    if (!hRes.ok) {
-      throw new Error('โหลดประวัติไม่สำเร็จ');
-    }
+    availableTeams = result.data;
 
-    const teams = await tRes.json();
-    const queue = await qRes.json();
-    const history = await hRes.json();
+    renderTeams(availableTeams);
+    renderSortInfo(result);
 
-    renderTeams(teams);
-    renderTeamQueue(queue);
-    renderHistory(history);
+    await loadQueue();
+    await loadHistory();
+    await loadScorers();
 
   } catch (err) {
 
-    showError('โหลดข้อมูลไม่สำเร็จ: ' + err.message);
+    console.error(err);
+
+    error.textContent =
+      "เกิดข้อผิดพลาดในการโหลดข้อมูล: " + err.message;
 
   } finally {
 
-    showLoading(false);
+    loading.style.display = "none";
 
   }
+
 }
 
 
-// ---------- Loading ----------
-function showLoading(isLoading) {
-  const loading = document.getElementById('loading');
+// ================= SORT INFO =================
 
-  if (!loading) return;
+function renderSortInfo(result) {
 
-  loading.style.display = isLoading ? 'block' : 'none';
+  const element = document.getElementById("sortInfo");
+
+  element.textContent =
+    `${result.algorithm} · ${result.count} ทีม · ${result.ms} ms`;
+
 }
 
 
-// ---------- Error ----------
-function showError(msg) {
-  const box = document.getElementById('error');
+// ================= STANDING ZONE =================
 
-  if (!box) return;
+function getStandingClass(rank) {
 
-  box.textContent = msg;
-  box.style.display = msg ? 'block' : 'none';
-}
-
-
-// ---------- render ตารางทีม ----------
-function renderTeams(res) {
-
-  const sortInfo = document.getElementById('sortInfo');
-
-  if (sortInfo) {
-    sortInfo.textContent =
-      `${res.algorithm} · ${res.count} ทีม · ${res.ms} ms`;
+  if (rank >= 1 && rank <= 4) {
+    return "zone-cl";
   }
 
-  const container = document.getElementById('characters');
+  if (rank === 5) {
+    return "zone-europa";
+  }
 
-  if (!container) return;
+  if (rank === 6) {
+    return "zone-conference";
+  }
 
-  container.innerHTML = res.data.map(team => `
-    <div class="card"
-         data-team-id="${team.id}"
-         tabindex="0"
-         role="button"
-         aria-label="ดูรายละเอียด ${team.name}">
+  if (rank >= 18) {
+    return "zone-relegation";
+  }
 
-      <div class="info">
+  return "";
 
-        <strong>
-          <img
-            class="team-logo"
-            src="${team.logo}"
-            alt=""
-          >
-          ${team.rank ? `${team.rank}. ` : ''}${team.name}
-        </strong>
+}
 
-        <span class="meta">
-          แข่ง ${team.matches} · ชนะ ${team.won} · เสมอ ${team.draw} · แพ้ ${team.lost}
-        </span>
 
-        <span class="eps">
-          ${team.points} คะแนน · ผลต่างประตู ${team.goalDiff}
+// ================= RENDER TEAMS =================
+
+function renderTeams(teams) {
+
+  const container = document.getElementById("characters");
+
+  container.innerHTML = "";
+
+  teams.forEach(team => {
+
+    const row = document.createElement("div");
+
+    row.className =
+      `team-row ${getStandingClass(team.rank)}`;
+
+    const isSelected =
+      selectedTeams.some(item => item.id === team.id);
+
+    row.innerHTML = `
+
+      <div class="team-rank">
+        ${team.rank}
+      </div>
+
+      <div class="team-cell">
+
+        <img
+          class="team-logo"
+          src="${team.logo || ""}"
+          alt=""
+        >
+
+        <span class="team-name">
+          ${team.name}
         </span>
 
       </div>
 
-      <button
-        class="queue-button"
-        data-team-id="${team.id}">
-        + คิว
-      </button>
+      <div class="stat">
+        ${team.matches}
+      </div>
 
-    </div>
-  `).join('');
+      <div class="stat">
+        ${team.won}
+      </div>
+
+      <div class="stat">
+        ${team.draw}
+      </div>
+
+      <div class="stat">
+        ${team.lost}
+      </div>
+
+      <div class="stat">
+        ${team.goalDiff > 0 ? "+" : ""}
+        ${team.goalDiff}
+      </div>
+
+      <div class="points">
+        ${team.points}
+      </div>
+
+      <div>
+
+        <button
+          class="queue-button ${isSelected ? "selected" : ""}"
+          onclick="addToQueue(${team.id})"
+          title="เพิ่มทีมเข้าคิว"
+        >
+          ${isSelected ? "✓" : "+"}
+        </button>
+
+      </div>
+
+    `;
+
+    row.querySelector(".team-cell").onclick =
+      () => openTeamModal(team.id);
+
+    container.appendChild(row);
+
+  });
+
+}
 
 
-  // ---------- กดดูรายละเอียดทีม ----------
-  document.querySelectorAll('.card').forEach(card => {
+// ================= SCORERS =================
 
-    const team = res.data.find(
-      t => t.id === Number(card.dataset.teamId)
+async function loadScorers() {
+
+  const container = document.getElementById("scorers");
+
+  try {
+
+    const response = await fetch("/scorers");
+
+    if (!response.ok) {
+      throw new Error("โหลดดาวซัลโวไม่สำเร็จ");
+    }
+
+    const scorers = await response.json();
+
+    if (!scorers.length) {
+
+      container.innerHTML =
+        `<div class="empty-message">ไม่มีข้อมูลดาวซัลโว</div>`;
+
+      return;
+    }
+
+    container.innerHTML = scorers.map(player => `
+
+      <div class="scorer-item">
+
+        <div class="scorer-rank">
+          ${player.rank}
+        </div>
+
+        <div class="scorer-info">
+
+          <span class="scorer-name">
+            ${player.name}
+          </span>
+
+          <span class="scorer-team">
+            ${player.team}
+          </span>
+
+        </div>
+
+        <div class="scorer-goals">
+          ${player.goals} ⚽
+        </div>
+
+      </div>
+
+    `).join("");
+
+  } catch (err) {
+
+    console.error(err);
+
+    container.innerHTML =
+      `<div class="empty-message">
+        ไม่สามารถโหลดข้อมูลดาวซัลโวได้
+      </div>`;
+
+  }
+
+}
+
+
+// ================= TEAM MODAL =================
+
+// เปิดดูจากตาราง
+function openTeamModal(teamId) {
+
+  const team =
+    availableTeams.find(item => item.id === teamId);
+
+  if (!team) return;
+
+  // ถ้าเปิดจากตาราง = ดูได้ทุกทีม
+  modalTeamSequence = availableTeams;
+
+  modalTeamIndex =
+    availableTeams.findIndex(
+      item => item.id === teamId
     );
 
-    card.addEventListener('click', () => {
-      openTeamModal(team);
-    });
+  renderTeamModal(team);
 
-    card.addEventListener('keydown', event => {
+  document
+    .getElementById("characterModal")
+    .showModal();
 
-      if (event.key === 'Enter' || event.key === ' ') {
-
-        event.preventDefault();
-
-        openTeamModal(team);
-
-      }
-
-    });
-
-  });
-
-
-  // ---------- ปุ่มเพิ่มเข้าคิว ----------
-  document.querySelectorAll('.queue-button').forEach(button => {
-
-    button.addEventListener('click', event => {
-
-      event.stopPropagation();
-
-      addToTeamQueue(
-        Number(button.dataset.teamId)
-      );
-
-    });
-
-  });
+  updateModalButtons();
 
 }
 
 
-// ---------- Modal รายละเอียดทีม ----------
-function openTeamModal(team) {
+// ================= RENDER TEAM MODAL =================
 
-  const modal = document.getElementById('characterModal');
+function renderTeamModal(team) {
 
-  if (!modal) return;
+  document.getElementById("modalName").textContent =
+    team.name;
 
+  document.getElementById("modalLogo").src =
+    team.logo || "";
 
-  const modalName = document.getElementById('modalName');
-  const modalStatus = document.getElementById('modalStatus');
-  const modalSpecies = document.getElementById('modalSpecies');
-  const modalGender = document.getElementById('modalGender');
-  const modalOrigin = document.getElementById('modalOrigin');
-  const modalLocation = document.getElementById('modalLocation');
-  const modalEpisodes = document.getElementById('modalEpisodes');
+  document.getElementById("modalStatus").textContent =
+    team.points;
 
+  document.getElementById("modalSpecies").textContent =
+    team.matches;
 
-  if (modalName) {
-    modalName.textContent = team.name;
-  }
+  document.getElementById("modalGender").textContent =
+    team.won;
 
-  if (modalStatus) {
-    modalStatus.textContent = `${team.points} คะแนน`;
-  }
+  document.getElementById("modalOrigin").textContent =
+    team.draw;
 
-  if (modalSpecies) {
-    modalSpecies.textContent = `${team.matches} นัด`;
-  }
+  document.getElementById("modalLocation").textContent =
+    team.lost;
 
-  if (modalGender) {
-    modalGender.textContent = `ชนะ ${team.won}`;
-  }
+  document.getElementById("modalEpisodes").textContent =
+    team.goalDiff > 0
+      ? `+${team.goalDiff}`
+      : team.goalDiff;
 
-  if (modalOrigin) {
-    modalOrigin.textContent = `เสมอ ${team.draw}`;
-  }
+  renderNextMatch(team);
+  renderMatches(team);
 
-  if (modalLocation) {
-    modalLocation.textContent = `แพ้ ${team.lost}`;
-  }
-
-  if (modalEpisodes) {
-    modalEpisodes.textContent =
-      `ผลต่างประตู ${team.goalDiff}`;
-  }
-
-
-  const matchesList = document.getElementById('modalMatches');
-
-  if (matchesList) {
-
-    matchesList.innerHTML = team.matchesDetail.length === 0
-
-      ? '<p class="empty">ยังไม่มีข้อมูลนัดที่แข่งจบ</p>'
-
-      : team.matchesDetail.map(match => `
-
-          <div class="match-row ${match.outcome}">
-
-            <span>
-              ${new Date(match.date).toLocaleDateString('th-TH')}
-            </span>
-
-            <span class="opponent">
-
-              <img
-                src="${match.opponentLogo}"
-                alt=""
-              >
-
-              ${match.opponent}
-
-            </span>
-
-            <strong>
-              ${match.goals} - ${match.opponentGoals}
-            </strong>
-
-            <b>
-              ${
-                match.outcome === 'win'
-                  ? 'ชนะ'
-                  : match.outcome === 'loss'
-                    ? 'แพ้'
-                    : 'เสมอ'
-              }
-            </b>
-
-          </div>
-
-        `).join('');
-
-  }
-
-
-  modal.showModal();
+  updateModalButtons();
 
 }
 
+
+// ================= MODAL BUTTON =================
+
+function updateModalButtons() {
+
+  const nextButton =
+    document.querySelector(
+      '#characterModal button[onclick="showNextTeam()"]'
+    );
+
+  if (!nextButton) return;
+
+  // ไม่มีทีม
+  if (!modalTeamSequence.length) {
+
+    nextButton.textContent = "ปิด";
+    nextButton.onclick = closeCharacterModal;
+
+    return;
+  }
+
+  // ถ้าเป็นทีมสุดท้าย
+  if (
+    modalTeamIndex >=
+    modalTeamSequence.length - 1
+  ) {
+
+    nextButton.textContent = "ปิด";
+    nextButton.onclick = closeCharacterModal;
+
+  } else {
+
+    nextButton.textContent = "ดูทีมต่อไป →";
+    nextButton.onclick = showNextTeam;
+
+  }
+
+}
+
+
+// ================= CLOSE MODAL =================
 
 function closeCharacterModal() {
 
-  const modal = document.getElementById('characterModal');
+  document
+    .getElementById("characterModal")
+    .close();
 
-  if (modal) {
-    modal.close();
+}
+
+
+// ================= NEXT MATCH =================
+
+function renderNextMatch(team) {
+
+  const container =
+    document.getElementById("nextMatch");
+
+  if (!team.nextMatch) {
+
+    container.innerHTML = `
+      <div class="next-match-title">
+        NEXT MATCH
+      </div>
+
+      <div class="next-match-content">
+        ยังไม่มีข้อมูลนัดถัดไป
+      </div>
+    `;
+
+    return;
+  }
+
+  const match = team.nextMatch;
+
+  const date =
+    new Date(match.date).toLocaleString("th-TH", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    });
+
+  container.innerHTML = `
+
+    <div class="next-match-title">
+      NEXT MATCH · ${date}
+    </div>
+
+    <div class="next-match-content">
+
+      ${match.homeTeam}
+
+      <span> vs </span>
+
+      ${match.awayTeam}
+
+    </div>
+
+  `;
+
+}
+
+
+// ================= MATCH HISTORY =================
+
+function renderMatches(team) {
+
+  const container =
+    document.getElementById("modalMatches");
+
+  const matches =
+    (team.matchesDetail || [])
+      .slice(-5)
+      .reverse();
+
+  if (!matches.length) {
+
+    container.innerHTML =
+      `<div class="empty-message">
+        ยังไม่มีข้อมูลการแข่งขัน
+      </div>`;
+
+    return;
+  }
+
+  container.innerHTML =
+    matches.map(match => {
+
+      const date =
+        new Date(match.date)
+          .toLocaleDateString("th-TH");
+
+      let resultClass = "match-draw";
+      let resultText = "เสมอ";
+
+      if (match.outcome === "win") {
+
+        resultClass = "match-win";
+        resultText = "ชนะ";
+
+      }
+
+      if (match.outcome === "loss") {
+
+        resultClass = "match-loss";
+        resultText = "แพ้";
+
+      }
+
+      return `
+
+        <div class="match-row">
+
+          <span class="match-date">
+            ${date}
+          </span>
+
+          <span class="match-opponent">
+            vs ${match.opponent}
+          </span>
+
+          <span class="match-score">
+            ${match.goals} - ${match.opponentGoals}
+          </span>
+
+          <span class="${resultClass}">
+            ${resultText}
+          </span>
+
+        </div>
+
+      `;
+
+    }).join("");
+
+}
+
+
+// ================= MODAL NEXT / PREVIOUS =================
+
+function showNextTeam() {
+
+  if (!modalTeamSequence.length) {
+
+    closeCharacterModal();
+    return;
+
+  }
+
+  // ถ้าอยู่ทีมสุดท้ายแล้ว = ปิด
+  if (
+    modalTeamIndex >=
+    modalTeamSequence.length - 1
+  ) {
+
+    closeCharacterModal();
+    return;
+
+  }
+
+  modalTeamIndex++;
+
+  renderTeamModal(
+    modalTeamSequence[modalTeamIndex]
+  );
+
+}
+
+
+function showPreviousTeam() {
+
+  if (!modalTeamSequence.length) return;
+
+  // ถ้าเป็นทีมแรก ไม่วนไปท้าย
+  if (modalTeamIndex <= 0) {
+    return;
+  }
+
+  modalTeamIndex--;
+
+  renderTeamModal(
+    modalTeamSequence[modalTeamIndex]
+  );
+
+}
+
+
+// ================= QUEUE =================
+
+async function loadQueue() {
+
+  try {
+
+    const response =
+      await fetch("/teamqueue");
+
+    const data =
+      await response.json();
+
+    selectedTeams =
+      data.items || [];
+
+    updateQueueUI();
+
+  } catch (err) {
+
+    console.error("Queue:", err);
+
   }
 
 }
 
 
-// ---------- Queue ----------
-function renderTeamQueue(res) {
+// ================= UPDATE QUEUE UI =================
 
-  const queueSize = document.getElementById('queueSize');
-  const queueSizePopup = document.getElementById('queueSizePopup');
-  const queueList = document.getElementById('watchlist');
-  const processButton = document.getElementById('processQueueButton');
+function updateQueueUI() {
 
+  const size =
+    selectedTeams.length;
 
-  if (queueSize) {
-    queueSize.textContent = res.size;
-  }
+  document.getElementById("queueSize").textContent =
+    size;
 
-  if (queueSizePopup) {
-    queueSizePopup.textContent = res.size;
-  }
+  document.getElementById("queueSizePopup").textContent =
+    size;
 
-  if (processButton) {
-    processButton.disabled = res.size === 0;
-  }
+  renderQueue();
 
-  if (!queueList) return;
-
-
-  queueList.innerHTML =
-    res.size === 0
-
-      ? '<li class="empty">ยังไม่มีทีมในคิว</li>'
-
-      : res.items.map((team, i) => `
-
-          <li class="queue-item">
-
-            <span class="queue-position">
-              ${String(i + 1).padStart(2, '0')}
-            </span>
-
-            <img
-              class="popup-team-logo"
-              src="${team.logo}"
-              alt=""
-            >
-
-            <strong>
-              ${team.name}
-            </strong>
-
-          </li>
-
-        `).join('');
+  renderTeams(availableTeams);
 
 }
 
+
+// ================= RENDER QUEUE =================
+
+function renderQueue() {
+
+  const list =
+    document.getElementById("watchlist");
+
+  if (!selectedTeams.length) {
+
+    list.innerHTML = `
+      <li class="empty-message">
+        ยังไม่มีทีมในคิว
+      </li>
+    `;
+
+    return;
+  }
+
+  list.innerHTML =
+    selectedTeams.map((team, index) => `
+
+      <li>
+
+        <span>
+          <strong>${team.name}</strong>
+        </span>
+
+        <span class="queue-position">
+          #${index + 1}
+        </span>
+
+      </li>
+
+    `).join("");
+
+}
+
+
+// ================= ADD TO QUEUE =================
+
+async function addToQueue(teamId) {
+
+  try {
+
+    const response =
+      await fetch("/teamqueue", {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          teamId
+        })
+
+      });
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      alert(
+        data.error ||
+        "เพิ่มทีมไม่สำเร็จ"
+      );
+
+      return;
+
+    }
+
+    await loadQueue();
+    await loadHistory();
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert(
+      "ไม่สามารถเพิ่มทีมเข้าคิวได้"
+    );
+
+  }
+
+}
+
+
+// ================= PROCESS QUEUE =================
+
+async function processQueue() {
+
+  if (!selectedTeams.length) {
+
+    alert("ยังไม่มีทีมในคิว");
+
+    return;
+  }
+
+  try {
+
+    const response =
+      await fetch("/teamqueue/process", {
+        method: "DELETE"
+      });
+
+    const data =
+      await response.json();
+
+    if (!response.ok) {
+
+      alert(
+        data.error ||
+        "ไม่สามารถดูทีมถัดไปได้"
+      );
+
+      return;
+
+    }
+
+    /*
+      สำคัญ:
+      หลังจาก Queue ทำงานไป 1 ทีม
+      data.team คือทีมที่ถูกเปิดดู
+
+      เราจะใช้ selectedTeams
+      เป็นลำดับสำหรับการดูต่อ
+    */
+
+    // เก็บรายการ Queue ก่อน loadQueue
+    const queueSequence = [
+      data.team,
+      ...selectedTeams.filter(
+        team =>
+          Number(team.id) !==
+          Number(data.team.id)
+      )
+    ];
+
+    // อัปเดต Queue
+    await loadQueue();
+
+    // อัปเดต History
+    await loadHistory();
+
+    if (data.team) {
+
+      // ใช้เฉพาะทีมที่อยู่ใน Queue
+      modalTeamSequence =
+        queueSequence;
+
+      modalTeamIndex = 0;
+
+      renderTeamModal(data.team);
+
+      document
+        .getElementById("characterModal")
+        .showModal();
+
+      updateModalButtons();
+
+    }
+
+  } catch (err) {
+
+    console.error(err);
+
+    alert(
+      "เกิดข้อผิดพลาดในการประมวลผล Queue"
+    );
+
+  }
+
+}
+
+
+// ================= QUEUE MODAL =================
 
 function openQueueModal() {
 
-  const modal = document.getElementById('queueModal');
-
-  if (modal) {
-    modal.showModal();
-  }
+  document
+    .getElementById("queueModal")
+    .showModal();
 
 }
 
 
 function closeQueueModal() {
 
-  const modal = document.getElementById('queueModal');
+  document
+    .getElementById("queueModal")
+    .close();
 
-  if (modal) {
-    modal.close();
+}
+
+
+// ================= HISTORY =================
+
+async function loadHistory() {
+
+  try {
+
+    const response =
+      await fetch("/history");
+
+    const data =
+      await response.json();
+
+    document.getElementById("historySize").textContent =
+      data.size || 0;
+
+    document.getElementById("historySizePopup").textContent =
+      data.size || 0;
+
+    renderHistory(
+      data.display || []
+    );
+
+  } catch (err) {
+
+    console.error(
+      "History:",
+      err
+    );
+
   }
 
 }
 
 
+// ================= RENDER HISTORY =================
+
+function renderHistory(history) {
+
+  const list =
+    document.getElementById("history");
+
+  if (!history.length) {
+
+    list.innerHTML = `
+      <li class="empty-message">
+        ยังไม่มีประวัติการทำงาน
+      </li>
+    `;
+
+    return;
+  }
+
+  list.innerHTML =
+    history.map(item => {
+
+      const action =
+        item.action === "ADD"
+          ? "เพิ่มทีมเข้าคิว"
+          : "ดูทีม";
+
+      const className =
+        item.action === "ADD"
+          ? "history-add"
+          : "history-view";
+
+      return `
+
+        <li>
+
+          <span class="${className}">
+            ${action}
+          </span>
+
+          <strong>
+            ${item.team?.name || "-"}
+          </strong>
+
+        </li>
+
+      `;
+
+    }).join("");
+
+}
+
+
+// ================= HISTORY MODAL =================
+
 function openHistoryModal() {
 
-  const modal = document.getElementById('historyModal');
-
-  if (modal) {
-    modal.showModal();
-  }
+  document
+    .getElementById("historyModal")
+    .showModal();
 
 }
 
 
 function closeHistoryModal() {
 
-  const modal = document.getElementById('historyModal');
-
-  if (modal) {
-    modal.close();
-  }
+  document
+    .getElementById("historyModal")
+    .close();
 
 }
 
 
-// ---------- History ----------
-function renderHistory(res) {
+// ================= UNDO =================
 
-  const historyList = document.getElementById('history');
-  const historySize = document.getElementById('historySize');
-  const historySizePopup = document.getElementById('historySizePopup');
-
-
-  if (historySize) {
-    historySize.textContent = res.size;
-  }
-
-  if (historySizePopup) {
-    historySizePopup.textContent = res.size;
-  }
-
-  if (!historyList) return;
-
-
-  historyList.innerHTML =
-    res.size === 0
-
-      ? '<li class="empty">ยังไม่มีประวัติ</li>'
-
-      : res.history.map(h => `
-
-          <li class="history-item">
-
-            <span class="history-action ${h.action.toLowerCase()}">
-
-              ${
-                h.action === 'ADD'
-                  ? 'เพิ่มเข้าคิว'
-                  : 'ดูทีม'
-              }
-
-            </span>
-
-            <img
-              class="popup-team-logo"
-              src="${h.team.logo}"
-              alt=""
-            >
-
-            <strong>
-              ${h.team.name}
-            </strong>
-
-            <time>
-              ${h.time}
-            </time>
-
-          </li>
-
-        `).join('');
-
-}
-
-
-// ---------- เพิ่มทีมเข้าคิว ----------
-async function addToTeamQueue(id) {
-
-  try {
-
-    const res = await fetch('/teamqueue', {
-
-      method: 'POST',
-
-      headers: {
-        'Content-Type': 'application/json'
-      },
-
-      body: JSON.stringify({ id })
-
-    });
-
-
-    if (!res.ok) {
-
-      const data = await res.json();
-
-      throw new Error(
-        data.error || 'ไม่สามารถเพิ่มทีมเข้าคิวได้'
-      );
-
-    }
-
-
-    await loadDashboard();
-
-  } catch (err) {
-
-    showError(err.message);
-
-  }
-
-}
-
-
-// ---------- ประมวลผลคิว ----------
-async function processQueue() {
-
-  try {
-
-    const res = await fetch(
-      '/teamqueue/process',
-      {
-        method: 'DELETE'
-      }
-    );
-
-
-    if (!res.ok) {
-
-      const data = await res.json();
-
-      throw new Error(
-        data.error || 'ไม่สามารถประมวลผลคิวได้'
-      );
-
-    }
-
-
-    const data = await res.json();
-
-    await loadDashboard();
-
-    closeQueueModal();
-
-    openTeamModal(data.team);
-
-  } catch (err) {
-
-    showError(err.message);
-
-  }
-
-}
-
-
-// ---------- Undo ----------
 async function undo() {
 
   try {
 
-    const res = await fetch(
-      '/undo',
-      {
-        method: 'POST'
-      }
-    );
+    const response =
+      await fetch("/undo", {
+        method: "POST"
+      });
 
+    const data =
+      await response.json();
 
-    if (!res.ok) {
+    if (!response.ok) {
 
-      const data = await res.json();
-
-      throw new Error(
-        data.error || 'ไม่สามารถ Undo ได้'
+      alert(
+        data.error ||
+        "ไม่มีอะไรให้ Undo"
       );
+
+      return;
 
     }
 
-
-    await loadDashboard();
+    await loadQueue();
+    await loadHistory();
 
   } catch (err) {
 
-    showError(err.message);
+    console.error(err);
+
+    alert("Undo ไม่สำเร็จ");
 
   }
 
 }
 
 
-// ---------- เริ่มทำงาน ----------
-window.addEventListener(
-  'load',
-  loadDashboard
-);
+// ================= START =================
+
+loadDashboard();
