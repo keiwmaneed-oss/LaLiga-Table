@@ -1,14 +1,32 @@
 const express = require('express');
+const path = require('path');
+
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
-app.use(express.static('public'));
 
-const API_URL = 'https://api.openligadb.de/getbltable/la1/2026';
-const MATCHES_URL = 'https://api.openligadb.de/getmatchdata/la1/2026';
+// ================= STATIC FILES =================
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+// หน้าแรก
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+
+// ================= API =================
+
+const API_URL =
+  'https://api.openligadb.de/getbltable/la1/2026';
+
+const MATCHES_URL =
+  'https://api.openligadb.de/getmatchdata/la1/2026';
 
 let teams = [];
+let teamsLoaded = false;
+let teamsLoading = null;
 
 
 // ================= TOP SCORERS =================
@@ -38,11 +56,15 @@ const topScorers = [
 // ================= LOAD TEAMS =================
 
 async function loadTeams() {
+
   try {
+
     const res = await fetch(API_URL);
 
     if (!res.ok) {
-      throw new Error('API ตอบ status ' + res.status);
+      throw new Error(
+        'API ตอบ status ' + res.status
+      );
     }
 
     const data = await res.json();
@@ -50,21 +72,26 @@ async function loadTeams() {
     let matches = [];
 
     try {
-      const matchesRes = await fetch(MATCHES_URL);
+
+      const matchesRes =
+        await fetch(MATCHES_URL);
 
       if (!matchesRes.ok) {
         throw new Error(
-          'API นัดแข่งตอบ status ' + matchesRes.status
+          'API นัดแข่งตอบ status ' +
+          matchesRes.status
         );
       }
 
       matches = await matchesRes.json();
 
     } catch (err) {
+
       console.error(
         '⚠️ โหลดข้อมูลนัดแข่งไม่สำเร็จ:',
         err.message
       );
+
     }
 
 
@@ -95,7 +122,7 @@ async function loadTeams() {
           if (
             !current ||
             new Date(upcoming.date) <
-            new Date(current.date)
+              new Date(current.date)
           ) {
 
             upcomingMatchesByTeam.set(
@@ -125,10 +152,12 @@ async function loadTeams() {
 
 
       const team1Won =
-        result.pointsTeam1 > result.pointsTeam2;
+        result.pointsTeam1 >
+        result.pointsTeam2;
 
       const team2Won =
-        result.pointsTeam2 > result.pointsTeam1;
+        result.pointsTeam2 >
+        result.pointsTeam1;
 
 
       const matchInfo = [
@@ -174,12 +203,15 @@ async function loadTeams() {
 
 
           const teamMatches =
-            matchesByTeam.get(team.teamId) || [];
+            matchesByTeam.get(
+              team.teamId
+            ) || [];
 
 
           teamMatches.push({
 
-            date: match.matchDateTime,
+            date:
+              match.matchDateTime,
 
             opponent:
               opponent.teamName,
@@ -211,25 +243,35 @@ async function loadTeams() {
 
     teams = data.map(team => ({
 
-      id: Number(team.teamInfoId),
+      id:
+        Number(team.teamInfoId),
 
-      name: team.teamName,
+      name:
+        team.teamName,
 
-      logo: team.teamIconUrl,
+      logo:
+        team.teamIconUrl,
 
-      rank: Number(team.rank),
+      rank:
+        Number(team.rank),
 
-      points: Number(team.points),
+      points:
+        Number(team.points),
 
-      matches: Number(team.matches),
+      matches:
+        Number(team.matches),
 
-      won: Number(team.won),
+      won:
+        Number(team.won),
 
-      draw: Number(team.draw),
+      draw:
+        Number(team.draw),
 
-      lost: Number(team.lost),
+      lost:
+        Number(team.lost),
 
-      goals: Number(team.goals),
+      goals:
+        Number(team.goals),
 
       opponentGoals:
         Number(team.opponentGoals),
@@ -250,9 +292,14 @@ async function loadTeams() {
     }));
 
 
+    teamsLoaded = teams.length > 0;
+
+
     console.log(
       `✅ โหลดตาราง LaLiga สำเร็จ: ${teams.length} ทีม`
     );
+
+    return true;
 
   } catch (err) {
 
@@ -261,7 +308,33 @@ async function loadTeams() {
       err.message
     );
 
+    teamsLoaded = false;
+
+    return false;
   }
+
+}
+
+
+// ================= VERCEL LOAD SYSTEM =================
+
+async function ensureTeamsLoaded() {
+
+  if (teamsLoaded && teams.length > 0) {
+    return;
+  }
+
+  if (!teamsLoading) {
+
+    teamsLoading =
+      loadTeams()
+        .finally(() => {
+          teamsLoading = null;
+        });
+
+  }
+
+  await teamsLoading;
 
 }
 
@@ -327,13 +400,15 @@ function insertionSort(arr) {
     i++
   ) {
 
-    const current = result[i];
+    const current =
+      result[i];
 
     let j = i - 1;
 
     while (
       j >= 0 &&
-      result[j].points < current.points
+      result[j].points <
+        current.points
     ) {
 
       result[j + 1] =
@@ -343,7 +418,8 @@ function insertionSort(arr) {
 
     }
 
-    result[j + 1] = current;
+    result[j + 1] =
+      current;
 
   }
 
@@ -394,13 +470,30 @@ function bubbleSort(arr) {
 
 // ================= TEAMS API =================
 
-app.get('/teams', (req, res) => {
+app.get('/teams', async (req, res) => {
+
+  await ensureTeamsLoaded();
+
+  if (!teams.length) {
+
+    return res.status(503).json({
+
+      error:
+        'ไม่สามารถโหลดข้อมูล LaLiga ได้'
+
+    });
+
+  }
+
 
   const algo =
-    req.query.algo || 'selection';
+    req.query.algo ||
+    'selection';
+
 
   const start =
     performance.now();
+
 
   let sortedTeams;
 
@@ -428,13 +521,16 @@ app.get('/teams', (req, res) => {
 
 
   const rankedTeams =
-    sortedTeams.map((team, index) => ({
+    sortedTeams.map(
+      (team, index) => ({
 
-      ...team,
+        ...team,
 
-      rank: index + 1
+        rank:
+          index + 1
 
-    }));
+      })
+    );
 
 
   res.json({
@@ -450,7 +546,9 @@ app.get('/teams', (req, res) => {
       rankedTeams.length,
 
     ms:
-      Number((end - start).toFixed(3)),
+      Number(
+        (end - start).toFixed(3)
+      ),
 
     data:
       rankedTeams
@@ -510,7 +608,8 @@ class Queue {
 }
 
 
-const queue = new Queue();
+const queue =
+  new Queue();
 
 
 // ================= STACK =================
@@ -565,118 +664,142 @@ class Stack {
 }
 
 
-const history = new Stack();
+const history =
+  new Stack();
 
 
 // ================= QUEUE GET =================
 
-app.get('/teamqueue', (req, res) => {
+app.get(
+  '/teamqueue',
+  async (req, res) => {
 
-  res.json({
+    await ensureTeamsLoaded();
 
-    items:
-      queue.items,
+    res.json({
 
-    size:
-      queue.size(),
+      items:
+        queue.items,
 
-    next:
-      queue.peek() || null
+      size:
+        queue.size(),
 
-  });
+      next:
+        queue.peek() || null
 
-});
+    });
+
+  }
+);
 
 
 // ================= QUEUE ADD =================
 
-app.post('/teamqueue', (req, res) => {
+app.post(
+  '/teamqueue',
+  async (req, res) => {
 
-  const teamId =
-    Number(req.body.teamId);
-
-
-  const team =
-    teams.find(
-      item =>
-        Number(item.id) === teamId
-    );
+    await ensureTeamsLoaded();
 
 
-  if (!team) {
+    const teamId =
+      Number(req.body.teamId);
 
-    return res.status(404).json({
 
-      error: 'ไม่พบทีมนี้',
+    const team =
+      teams.find(
+        item =>
+          Number(item.id) ===
+          teamId
+      );
 
-      receivedTeamId:
-        req.body.teamId
+
+    if (!team) {
+
+      return res.status(404).json({
+
+        error:
+          'ไม่พบทีมนี้',
+
+        receivedTeamId:
+          req.body.teamId
+
+      });
+
+    }
+
+
+    const alreadyInQueue =
+      queue.items.some(
+        item =>
+          Number(item.id) ===
+          teamId
+      );
+
+
+    if (alreadyInQueue) {
+
+      return res.status(400).json({
+
+        error:
+          'ทีมนี้อยู่ในคิวแล้ว'
+
+      });
+
+    }
+
+
+    queue.enqueue(team);
+
+
+    history.push({
+
+      action:
+        'ADD',
+
+      team:
+        team,
+
+      time:
+        new Date().toISOString()
+
+    });
+
+
+    res.json({
+
+      message:
+        'เพิ่มทีมเข้าคิวสำเร็จ',
+
+      items:
+        queue.items,
+
+      size:
+        queue.size()
 
     });
 
   }
-
-
-  const alreadyInQueue =
-    queue.items.some(
-      item =>
-        Number(item.id) === teamId
-    );
-
-
-  if (alreadyInQueue) {
-
-    return res.status(400).json({
-
-      error: 'ทีมนี้อยู่ในคิวแล้ว'
-
-    });
-
-  }
-
-
-  queue.enqueue(team);
-
-
-  history.push({
-
-    action: 'ADD',
-
-    team: team,
-
-    time:
-      new Date().toISOString()
-
-  });
-
-
-  res.json({
-
-    message:
-      'เพิ่มทีมเข้าคิวสำเร็จ',
-
-    items:
-      queue.items,
-
-    size:
-      queue.size()
-
-  });
-
-});
+);
 
 
 // ================= QUEUE PROCESS =================
 
 app.delete(
   '/teamqueue/process',
-  (req, res) => {
+  async (req, res) => {
 
-    if (queue.size() === 0) {
+    await ensureTeamsLoaded();
+
+
+    if (
+      queue.size() === 0
+    ) {
 
       return res.status(400).json({
 
-        error: 'ไม่มีทีมในคิว'
+        error:
+          'ไม่มีทีมในคิว'
 
       });
 
@@ -689,9 +812,11 @@ app.delete(
 
     history.push({
 
-      action: 'VIEW',
+      action:
+        'VIEW',
 
-      team: team,
+      team:
+        team,
 
       time:
         new Date().toISOString()
@@ -721,130 +846,156 @@ app.delete(
 
 // ================= HISTORY =================
 
-app.get('/history', (req, res) => {
+app.get(
+  '/history',
+  (req, res) => {
 
-  res.json({
+    res.json({
 
-    display:
-      history.display(),
+      display:
+        history.display(),
 
-    size:
-      history.items.length
-
-  });
-
-});
-
-
-// ================= UNDO =================
-
-app.post('/undo', (req, res) => {
-
-  if (history.isEmpty()) {
-
-    return res.status(400).json({
-
-      error: 'ไม่มีอะไรให้ Undo'
+      size:
+        history.items.length
 
     });
 
   }
+);
 
 
-  const last =
-    history.pop();
+// ================= UNDO =================
 
+app.post(
+  '/undo',
+  (req, res) => {
 
-  // Undo การเพิ่มทีมเข้าคิว
-
-  if (last.action === 'ADD') {
-
-    const teamId =
-      Number(last.team.id);
-
-
-    for (
-      let i = queue.items.length - 1;
-      i >= 0;
-      i--
+    if (
+      history.isEmpty()
     ) {
 
-      if (
-        Number(queue.items[i].id) ===
-        teamId
+      return res.status(400).json({
+
+        error:
+          'ไม่มีอะไรให้ Undo'
+
+      });
+
+    }
+
+
+    const last =
+      history.pop();
+
+
+    // Undo การเพิ่มทีมเข้าคิว
+
+    if (
+      last.action === 'ADD'
+    ) {
+
+      const teamId =
+        Number(last.team.id);
+
+
+      for (
+        let i =
+          queue.items.length - 1;
+        i >= 0;
+        i--
       ) {
 
-        queue.items.splice(i, 1);
+        if (
+          Number(
+            queue.items[i].id
+          ) === teamId
+        ) {
 
-        break;
+          queue.items.splice(
+            i,
+            1
+          );
+
+          break;
+
+        }
 
       }
 
     }
 
-  }
 
+    // Undo การดูทีม
 
-  // Undo การดูทีม
+    else if (
+      last.action === 'VIEW'
+    ) {
 
-  else if (last.action === 'VIEW') {
+      if (last.team) {
 
-    if (last.team) {
+        queue.items.unshift(
+          last.team
+        );
 
-      queue.items.unshift(
-        last.team
-      );
+      }
 
     }
 
+
+    res.json({
+
+      message:
+        'Undo สำเร็จ',
+
+      action:
+        last.action,
+
+      team:
+        last.team,
+
+      queue:
+        queue.items,
+
+      history:
+        history.display()
+
+    });
+
   }
-
-
-  res.json({
-
-    message:
-      'Undo สำเร็จ',
-
-    action:
-      last.action,
-
-    team:
-      last.team,
-
-    queue:
-      queue.items,
-
-    history:
-      history.display()
-
-  });
-
-});
+);
 
 
 // ================= START SERVER =================
 
 async function startServer() {
 
-  await loadTeams();
+  await ensureTeamsLoaded();
 
-  app.listen(PORT, () => {
+  app.listen(
+    PORT,
+    () => {
 
-    console.log(
-      `🚀 Server running at http://localhost:${PORT}`
-    );
+      console.log(
+        `🚀 Server running at http://localhost:${PORT}`
+      );
 
-  });
+    }
+  );
 
 }
 
 
-// ================= VERCEL =================
+// ================= START / VERCEL =================
 
-// เปิด Server แบบปกติเมื่อรันในเครื่อง
-if (require.main === module) {
+// ถ้ารันในเครื่อง
+if (
+  require.main === module
+) {
+
   startServer();
+
 }
+
 
 // ส่ง Express app ให้ Vercel
 module.exports = app;
