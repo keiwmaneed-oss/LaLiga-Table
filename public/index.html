@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>LaLiga Dashboard</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- Header -->
+  <header>
+    <h1>LaLiga EA Sports Dashboard</h1>
+
+    <p>
+      801201 Week 8 · Sort + Queue + Stack ·
+      ข้อมูลตารางคะแนนจาก OpenLigaDB API
+    </p>
+  </header>
+
+
+  <!-- Error -->
+  <div id="error"></div>
+
+
+  <!-- Main -->
+  <div class="layout">
+
+    <!-- ตารางคะแนน -->
+    <div class="panel">
+
+      <h2>ตารางคะแนน LaLiga</h2>
+
+      <div class="toolbar">
+
+        <select id="algo" onchange="loadDashboard()">
+
+          <option value="selection">
+            Selection Sort
+          </option>
+
+          <option value="insertion">
+            Insertion Sort
+          </option>
+
+          <option value="bubble">
+            Bubble Sort
+          </option>
+
+        </select>
+
+        <span id="sortInfo"></span>
+
+      </div>
+
+      <div id="characters"></div>
+
+    </div>
+
+
+    <!-- ด้านขวา -->
+    <div>
+
+      <div class="panel queue-panel summary-panel">
+        <button
+          class="summary-button queue-open-button"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="queueModal"
+          onclick="openQueueModal()"
+        >
+          <span class="summary-icon queue-icon" aria-hidden="true">★</span>
+          <span class="summary-copy">
+            <strong>ทีมที่เลือก</strong>
+            <small>รายการในคิว</small>
+          </span>
+          <span class="badge" id="queueSize">0</span>
+        </button>
+      </div>
+
+      <div class="panel summary-panel history-panel">
+        <button
+          class="summary-button history-open-button"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="historyModal"
+          onclick="openHistoryModal()"
+        >
+          <span class="summary-icon history-icon" aria-hidden="true">↶</span>
+          <span class="summary-copy">
+            <strong>ประวัติการทำงาน</strong>
+            <small>Stack</small>
+          </span>
+          <span class="badge history-badge" id="historySize">0</span>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- Modal -->
+  <dialog
+    id="characterModal"
+    aria-labelledby="modalName"
+  >
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h2 id="modalName"></h2>
+      </div>
+
+
+      <dl class="details">
+
+        <div>
+          <dt>คะแนน</dt>
+          <dd id="modalStatus"></dd>
+        </div>
+
+        <div>
+          <dt>แข่ง</dt>
+          <dd id="modalSpecies"></dd>
+        </div>
+
+        <div>
+          <dt>ชนะ</dt>
+          <dd id="modalGender"></dd>
+        </div>
+
+        <div>
+          <dt>เสมอ</dt>
+          <dd id="modalOrigin"></dd>
+        </div>
+
+        <div>
+          <dt>แพ้</dt>
+          <dd id="modalLocation"></dd>
+        </div>
+
+        <div>
+          <dt>ผลต่างประตู</dt>
+          <dd id="modalEpisodes"></dd>
+        </div>
+
+      </dl>
+
+
+      <!-- ผลการแข่งขัน -->
+      <h3 class="modal-matches-title">
+        ผลการแข่งขันรายนัด
+      </h3>
+
+      <div id="modalMatches"></div>
+
+      <div class="modal-actions">
+        <button
+          type="button"
+          onclick="closeCharacterModal()"
+        >
+          ปิด
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="queueModal" aria-labelledby="queueModalTitle">
+    <div class="popup-content">
+      <div class="popup-header">
+        <div>
+          <span class="popup-eyebrow">QUEUE</span>
+          <h2 id="queueModalTitle">ทีมที่เลือก</h2>
+        </div>
+        <span class="badge" id="queueSizePopup">0</span>
+      </div>
+
+      <ul id="watchlist" class="popup-list"></ul>
+
+      <div class="queue-modal-actions">
+        <button class="primary" id="processQueueButton" type="button" onclick="processQueue()">
+          ดูทีมถัดไป <span aria-hidden="true">→</span>
+        </button>
+        <button type="button" onclick="closeQueueModal()">ปิด</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="historyModal" aria-labelledby="historyModalTitle">
+    <div class="popup-content">
+      <div class="popup-header">
+        <div>
+          <span class="popup-eyebrow history-eyebrow">STACK</span>
+          <h2 id="historyModalTitle">ประวัติการทำงาน</h2>
+        </div>
+        <span class="badge history-badge" id="historySizePopup">0</span>
+      </div>
+
+      <ul id="history" class="popup-list history-list"></ul>
+
+      <div class="queue-modal-actions">
+        <button class="warn" type="button" onclick="undo()">
+          <span aria-hidden="true">↶</span> Undo ล่าสุด
+        </button>
+        <button type="button" onclick="closeHistoryModal()">ปิด</button>
+      </div>
+    </div>
+  </dialog>
+
+
+  <script src="dashboard.js"></script>
+
+</body>
+</html>

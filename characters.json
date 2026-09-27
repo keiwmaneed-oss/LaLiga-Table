@@ -1,0 +1,82 @@
+[
+  {
+    "id": 1,
+    "name": "FC Barcelona"
+  },
+  {
+    "id": 2,
+    "name": "Real Madrid"
+  },
+  {
+    "id": 3,
+    "name": "Atlético Madrid"
+  },
+  {
+    "id": 4,
+    "name": "Athletic Club"
+  },
+  {
+    "id": 5,
+    "name": "Real Betis"
+  },
+  {
+    "id": 6,
+    "name": "Villarreal CF"
+  },
+  {
+    "id": 7,
+    "name": "Sevilla FC"
+  },
+  {
+    "id": 8,
+    "name": "Real Sociedad"
+  },
+  {
+    "id": 9,
+    "name": "Valencia CF"
+  },
+  {
+    "id": 10,
+    "name": "Girona FC"
+  },
+  {
+    "id": 11,
+    "name": "Rayo Vallecano"
+  },
+  {
+    "id": 12,
+    "name": "Celta Vigo"
+  },
+  {
+    "id": 13,
+    "name": "Getafe CF"
+  },
+  {
+    "id": 14,
+    "name": "RCD Mallorca"
+  },
+  {
+    "id": 15,
+    "name": "CA Osasuna"
+  },
+  {
+    "id": 16,
+    "name": "Deportivo Alavés"
+  },
+  {
+    "id": 17,
+    "name": "RCD Espanyol"
+  },
+  {
+    "id": 18,
+    "name": "Levante UD"
+  },
+  {
+    "id": 19,
+    "name": "Elche CF"
+  },
+  {
+    "id": 20,
+    "name": "Real Oviedo"
+  }
+]
