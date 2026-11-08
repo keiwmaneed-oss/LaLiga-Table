@@ -4,12 +4,22 @@
   "description": "LaLiga Table & Match Results Tracker - External REST API + Sort + Queue + Stack",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+  "start": "node server.js",
+  "dev": "vite",
+  "build": "vite build",
+  "preview": "vite preview"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "express": "^4.22.3"
+    "express": "^4.22.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.2.1",
+    "vite": "^8.3.6"
   }
 }

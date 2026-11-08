@@ -24,6 +24,9 @@ const API_URL =
 const MATCHES_URL =
   'https://api.openligadb.de/getmatchdata/la1/2026';
 
+const SCORERS_URL =
+  'https://api.openligadb.de/getgoalgetters/la1/2026';
+
 let teams = [];
 let teamsLoaded = false;
 let teamsLoading = null;
@@ -31,27 +34,37 @@ let teamsLoading = null;
 
 // ================= TOP SCORERS =================
 
-const topScorers = [
-  {
-    rank: 1,
-    name: 'Raphinha',
-    team: 'Barcelona',
-    goals: 12
-  },
-  {
-    rank: 2,
-    name: 'Sergio Camello',
-    team: 'Rayo Vallecano',
-    goals: 7
-  },
-  {
-    rank: 2,
-    name: 'Kylian Mbappe',
-    team: 'Real Madrid',
-    goals: 7
-  }
-];
+// ================= SCORERS API =================
 
+app.get('/scorers', async (req, res) => {
+  try {
+    const response = await fetch(SCORERS_URL);
+
+    if (!response.ok) {
+      throw new Error('API ดาวซัลโวตอบ status ' + response.status);
+    }
+
+    const data = await response.json();
+
+    const scorers = data
+      .sort((a, b) => b.goalCount - a.goalCount)
+      .map((player, index) => ({
+        rank: index + 1,
+        name: player.goalGetterName,
+        team: player.goalGetterTeam?.teamName || 'ไม่ระบุ',
+        goals: Number(player.goalCount)
+      }));
+
+    res.json(scorers);
+
+  } catch (err) {
+    console.error('โหลดดาวซัลโวไม่สำเร็จ:', err.message);
+
+    res.status(503).json({
+      error: 'ไม่สามารถโหลดข้อมูลดาวซัลโวได้'
+    });
+  }
+});
 
 // ================= LOAD TEAMS =================
 
