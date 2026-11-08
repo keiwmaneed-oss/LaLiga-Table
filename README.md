@@ -93,8 +93,8 @@ npm run dev
 ## Team Members & Responsibilities
 | ชื่อสมาชิก | หน้าที่รับผิดชอบ |
 |---|---|
-| [ดัสกร เขียวมณี] | [ทำตารางคะแนนและหน้าทีมและการแข่งขัน] |
-| [ธีรยุทธ แสงทับทิม] | [สติถิทีมและหาข้อมูล] |
+| [ดัสกร เขียวมณี 010]| [พัฒนา Frontend และ Backend, API, Queue, Stack, Undo และ Sorting Algorithmsและจัดทำหลักฐาน Before → After] |
+| [ธีรยุทธ แสงทับทิม 014] | [ตรวจสอบการทำงานของระบบ, ทดสอบ API, จัดทำ Component Tree, ปรับปรุง README] |
 
 
 ## Recommendations
