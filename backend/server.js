@@ -1,20 +1,29 @@
+
 const express = require('express');
-const path = require('path');
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
 
-// ================= STATIC FILES =================
+// ================= BACKEND STATUS =================
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Backend ใช้ให้ Frontend เรียก API
+// หน้าเว็บหลักอยู่ที่ localhost:5173
 
-// หน้าแรก
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.json({
+    message: 'LaLiga Backend API is running',
+    status: 'OK',
+    endpoints: [
+      '/teams',
+      '/scorers',
+      '/teamqueue',
+      '/history',
+      '/undo'
+    ]
+  });
 });
-
 
 // ================= API =================
 
@@ -31,8 +40,6 @@ let teams = [];
 let teamsLoaded = false;
 let teamsLoading = null;
 
-
-// ================= TOP SCORERS =================
 
 // ================= SCORERS API =================
 
@@ -65,6 +72,7 @@ app.get('/scorers', async (req, res) => {
     });
   }
 });
+
 
 // ================= LOAD TEAMS =================
 
@@ -567,15 +575,6 @@ app.get('/teams', async (req, res) => {
       rankedTeams
 
   });
-
-});
-
-
-// ================= SCORERS API =================
-
-app.get('/scorers', (req, res) => {
-
-  res.json(topScorers);
 
 });
 
