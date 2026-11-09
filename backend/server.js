@@ -2,7 +2,7 @@
 const express = require('express');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
@@ -988,7 +988,7 @@ async function startServer() {
     () => {
 
       console.log(
-        `🚀 Server running at http://localhost:${PORT}`
+        `🚀 Server running on port ${PORT}`
       );
 
     }
@@ -999,7 +999,6 @@ async function startServer() {
 
 // ================= START / VERCEL =================
 
-// ถ้ารันในเครื่อง
 if (
   require.main === module
 ) {
@@ -1008,6 +1007,4 @@ if (
 
 }
 
-
-// ส่ง Express app ให้ Vercel
 module.exports = app;
