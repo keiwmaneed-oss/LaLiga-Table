@@ -1,8 +1,14 @@
 
 const express = require('express');
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// อนุญาตให้เว็บ Vercel เรียก API จาก Render
+app.use(cors({
+  origin: 'https://la-liga-table-uyoe.vercel.app'
+}));
 
 app.use(express.json());
 
