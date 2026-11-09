@@ -1,6 +1,8 @@
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+
 async function request(url, options = {}) {
-  const response = await fetch(url, options)
+  const response = await fetch(`${API_BASE_URL}${url}`, options)
   const result = await response.json()
 
   if (!response.ok) {
@@ -41,6 +43,7 @@ export function undoAction() {
     method: 'POST'
   })
 }
+
 export function getScorers() {
   return request('/scorers')
 }
